@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4892f977932c547228b852ddd2320b20, type: 3}
+  m_Name: peice13
+  m_EditorClassIdentifier: 
+  id: 13
+  rank: 1
+  rear: 1
+  efectNumber: 0
+  peiceName: "\u5FCC"
+  rub1: 
+  rub2: 
+  efect: "\u7BC4\u56F2+N1,N2"
+  move: 0100000000000000000000000000000000000000000000000000000000000000
+  efectType: 3
+  marchingType: 0
