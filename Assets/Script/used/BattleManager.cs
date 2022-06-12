@@ -1,64 +1,56 @@
-﻿//#define CPU_CPU_MODE
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
+using static common.CommonCalcuration;
+using static common.CommonType;
+using System.Linq;
+using System;
 
 public class BattleManager : MonoBehaviour {
 
 	PeiceMST peicemst;//ステータスデータ
 	
 	string charTagCache;//駒のtagキャッシュ
-	public Button[] Komas = new Button[40];//全体のprefab管理
+	
 	Vector3[,] Koma_Potision;//盤の位置情報表
-	int[,] isKoma;//駒の存在表1：自分、0：存在しない、-1：相手
 
 	//移動まえのいちを格納
 	int vCache;
 	int hCache;
 
-	//<駒に関するデータ>
-	Button komaOrigine;
-
-	public Transform banTransform;
-
-	//public GameObject Button_Detail;
 
 	//<移動先ナビゲートUI関係>
 	//移動可能先を示すボタンPrefab
 	Button navigateOrigine;
-	public RectTransform ImageTransform;
 	//public Transform PanelsTransform;
-	public RectTransform banContents1;
-	public RectTransform banContents2;
+	private RectTransform stockPlayer1;
+	private RectTransform stockPlayer2;
 
 	//prefabの添字用
-	int preCache = 0;
+	int globalKomaIndex = 0;
 
 	//敵のコマ変更はここから
-	int[] enemyTable = {0,0,0,0,0,0,0,0,0,6,5,1,2,3,4,7,4,3,2,1}; 
+	private int[] enemyTable = {0,0,0,0,0,0,0,0,0,6,5,1,2,3,4,7,4,3,2,1}; 
 
 //ベンチ関係
-	public GameObject Bench1;
-	public GameObject Bench2;
+	//public GameObject Bench1;
+	//public GameObject Bench2;
 
-	Animator animator1;
+	//Animator animator1;
 
-	Animator animator2;
+	//Animator animator2;
 
 	//bool isTurn = false;
 	bool openedMyBench = false;
 	bool openedEnemyBench = false;
 
-	//詳細画面表示
-	public GameObject _detailView;
-	DetailView detailView;
 
 	//ターン制御
 	//順番UI
-	public Text sennte;
-	public Text gote;
+	//public Text sennte;
+	//public Text gote;
 	//gamemanaからかんり
 	int turnNumber = 0;
 	bool textIn = false;
@@ -69,13 +61,13 @@ public class BattleManager : MonoBehaviour {
 	//制限時間関係
 	TimeUI timebar;
 
-	public Image timer;
+	//public Image timer;
 
 	//表示関係
-	public Text Result_text;
+	//public Text Result_text;
 
 	//効果発動メッセージ
-	public Image selectEfectForm;
+	//public Image selectEfectForm;
 	bool selectedEfect = false;
 	bool selected = true;
 	public Button Yes_Button;
@@ -90,151 +82,88 @@ public class BattleManager : MonoBehaviour {
 	bool finishFLG = false;
 	SaveManager save;
 
+	//---------------------------------used
+	
+
+	private Button komaPrefab;
+	private Button movablePrefab;
+	public Button[] allKomas = new Button[40];//全体のprefab管理
+
+	public static BattleManager instance;
+
+	private void Awake()
+	{
+		if(instance == null)
+		{
+			instance = this;
+			DontDestroyOnLoad(gameObject);
+		}
+	}
 
 	// Use this for initialization
 	void Start () {
 		peicemst = new PeiceMST();
-		detailView = _detailView.GetComponent<DetailView>();
-
-		//ポディション格納
-		Vector3 basePosition;
-		basePosition.x = -166;
-		basePosition.y = 168;
-		basePosition.z = 0;
-		Koma_Potision = new Vector3[9,9];
-		for(int i =0 ; i<9;i++){
-			for(int ii =0 ;ii<9;ii++){
-				Koma_Potision[i,ii] = basePosition;
-				basePosition.x += 42;
-			}
-			basePosition.y -= 42;
-			basePosition.x = -166;
-		}
-
-		//-1,0,1の範囲それぞれ敵,何もいない,自分駒 が存在している
-		//Koma_Positionとは別物
-		isKoma = new int[9,9];
 
 		//バトル関係
-		komaOrigine = Resources.Load<Button>("Plefab/koma");
-		navigateOrigine = Resources.Load<Button>("Plefab/MoveButton");
-		animator1 = Bench1.GetComponent<Animator>();
-		animator2 = Bench2.GetComponent<Animator>();
+		komaPrefab = Resources.Load<Button>("Plefab/used/koma");
+		movablePrefab = Resources.Load<Button>("Plefab/used/MovableButton");
+		//animator1 = Bench1.GetComponent<Animator>();
+		//animator2 = Bench2.GetComponent<Animator>();
 
-		//表示制御
-		_detailView.gameObject.SetActive(true);
 
 		//制限時間
-		timer.GetComponent<TimeUI>();
-		timebar = timer.GetComponent<TimeUI>();
-		charTagCache = "my";
-		PrefabSet(Player.mydeck);
-		charTagCache = "ene";
-		PrefabSet(enemyTable);
+		//timer.GetComponent<TimeUI>();
+		//timebar = timer.GetComponent<TimeUI>();
+		InitialSetting(Player.mydeck, "player1");
+		InitialSetting(enemyTable, "player2");
 	}
 	
 	// Update is called once per frame
 	void Update () {
-#if CPU_CPU_MODE
-
-		if(startFLG){
-			save = new SaveManager();
-			startFLG = false;
-		}
-		CPUTurn2();
-		CPUTurn();
-
-#else
-		if(textIn){
-			if(turnNumber%2 == 1)sennte.gameObject.SetActive(true);
-			else {
-				gote.gameObject.SetActive(true);
+		//if(textIn){
+		//	if(turnNumber%2 == 1)sennte.gameObject.SetActive(true);
+		//	else {
+		//		gote.gameObject.SetActive(true);
 				
-			}
-			deleteTime -= 1/deleteTime * Time.deltaTime;
-		}
+		//	}
+		//	deleteTime -= 1/deleteTime * Time.deltaTime;
+		//}
 
 		//時間制御	
-		if(deleteTime <= 0){
+		//if(deleteTime <= 0){
 
 
-			sennte.gameObject.SetActive(false);
-			gote.gameObject.SetActive(false);
-			deleteTime = 2;
-			textIn = false;
-			if(turnNumber%2 != 1)CPUTurn();
+		//	sennte.gameObject.SetActive(false);
+		//	gote.gameObject.SetActive(false);
+		//	deleteTime = 2;
+		//	textIn = false;
+		//	if(turnNumber%2 != 1)CPUTurn();
 			
-		}
+		//}
 
-		if(detailOn){
-			detailTime += Time.deltaTime;
-		}
+		//if(detailOn){
+		//	detailTime += Time.deltaTime;
+		//}
 
-		if(timebar.endfaids)PlayerSwitching();
-
-#endif
-		/* 
-		if (detailView.charStatusModeFlg1) {
-			//詳細UIをtrueして表示
-			detailView.secondery += Time.deltaTime;
-			if (detailView.secondery >= 1.0) {
-				detailView.charStatusModeFlg2 = true;
-				detailView.charStatusModeFlg1 = false;
-			}
-			//Debug.Log(charStatusModeFlg2);
-		}
-		
-		if (detailView.charStatusModeFlg2) {
-			detailView.DetailIn ();
-			detailView.secondery = 0;
-			detailView.charStatusModeFlg2 = false;
-		}
-		*/
+		//if(timebar.endfaids)PlayerSwitching();
 		
 	}
 
-	//peiceTableキャッシュしておくと良い
+
 	/// <summary>
 	/// 将棋版に駒を配置
 	/// </summary>
 	/// <param name="peiceTable">駒デッキテーブル（自、敵）</param>
-	public void PrefabSet(int[] peiceTable){
+	public void InitialSetting(int[] peiceTable, string playerTag){
 
-		//int idx = 0;
+		Tuple<int,int>[] settingPosition = playerTag == "player1" ? FieldInfo.instance.player1InitialKomaPosition : FieldInfo.instance.player2InitialKomaPosition;
 		
-		//int weight=8;//次のインデックスまでの距離
-		int pS;
-		if(charTagCache == "my")pS=1;
-		else pS = -1;
 
-		for(int idx =0;idx<peiceTable.Length;idx++){
-
-			if(idx<9){
-				if(pS == 1)createPiece(6,idx,peiceTable[idx]);
-				else createPiece(2,idx,peiceTable[idx]);
-				//idx++;
-			}
-			
-			if(idx==9){
-				if(pS == 1) createPiece(7,idx-8,peiceTable[idx]);
-				else createPiece(1,idx-2,peiceTable[idx]);
-				//idx++;
-			}
-
-			if(idx==10){
-				if(pS == 1) createPiece(7,idx-3,peiceTable[idx]);
-				else createPiece(1,idx-9,peiceTable[idx]);
-				//idx++;
-			}
-
-			if(idx>10){
-				if(pS == 1) createPiece(8,idx-11,peiceTable[idx]);
-				else createPiece(0,idx-11,peiceTable[idx]);
-				//idx++;
-			}	
+		for(int idx = 0; idx < peiceTable.Length; idx++)
+		{
+			createPiece(settingPosition[idx].Item1, settingPosition[idx].Item2, peiceTable[idx], playerTag);
+			globalKomaIndex++;
 		}
-		//idx=0;
-		//Debug.Log("komaset");
 	}
 
 	
@@ -244,50 +173,52 @@ public class BattleManager : MonoBehaviour {
 	/// <param name="v">縦軸</param>
 	/// <param name="h">横軸</param>
 	/// <param name="komaId">全体管理している駒のidx</param>
-	public void createPiece(int v,int h,int bint){
-		int p = 0; //ボタン関数用
+	public void createPiece(int v,int h,int peiceNo, string playerTag){
 
 		//インスタンス生成
-		Komas[preCache] = Instantiate(komaOrigine,banTransform);	
-		Komas[preCache].transform.SetParent(banTransform,false);
-		Komas[preCache].transform.localScale = Vector3.one;
-		Komas[preCache].transform.localPosition = Koma_Potision[v,h];
+		allKomas[globalKomaIndex] = Instantiate(komaPrefab, FieldInfo.instance.fieldTransform);	
+		allKomas[globalKomaIndex].transform.SetParent(FieldInfo.instance.fieldTransform, false);
+		allKomas[globalKomaIndex].transform.localScale = Vector3.one;
+		allKomas[globalKomaIndex].transform.localPosition = FieldInfo.instance.fieldPosition[v,h];
 
 		//ボタン関数付与
-		PeiceStatus PS = Komas[preCache].GetComponent<PeiceStatus>();
-		p = preCache;
-		//Komas[preCache].onClick.AddListener(() => createPanel(p));
+		PeiceStatus peiceStatus = allKomas[globalKomaIndex].GetComponent<PeiceStatus>();
+		int buttonIndex = globalKomaIndex;
+		//allKomas[globalKomaIndex].onClick.AddListener(() => createPanel(p));
 
 		//ステータス取得
-		PS.Initial(peicemst.getBaseObject(bint));
-		PS.tag = charTagCache;
-		PS.h = h;
-		PS.v = v;
+		peiceStatus.Initial(peicemst.getBaseObject(peiceNo));
+		peiceStatus.tag = playerTag;
+		peiceStatus.h = h;
+		peiceStatus.v = v;
 
 		//Event取得
-		EventTrigger trigger = Komas[preCache].GetComponent<EventTrigger> ();
-		trigger.triggers = new List<EventTrigger.Entry>();
-		//PointerDownSet
-		EventTrigger.Entry entry = new EventTrigger.Entry ();
-		entry.eventID = EventTriggerType.PointerDown;
-		//entry.callback.AddListener ((eventData) => detailView.SwitchStatusView (PS));
-		entry.callback.AddListener ((eventData) => KomaPointerDown(p));
-		trigger.triggers.Add (entry);
-		//PointerUpset
-		EventTrigger.Entry entry2 = new EventTrigger.Entry ();
-		entry2.eventID = EventTriggerType.PointerUp;
-		entry2.callback.AddListener ((eventData) => KomaPointerUp());
-		trigger.triggers.Add (entry2);
-		
+		//EventTrigger trigger = allKomas[globalKomaIndex].GetComponent<EventTrigger> ();
+		//trigger.triggers = new List<EventTrigger.Entry>();
+		////PointerDownSet
+		//EventTrigger.Entry entry = new EventTrigger.Entry ();
+		//entry.eventID = EventTriggerType.PointerDown;
+		////entry.callback.AddListener ((eventData) => detailView.SwitchStatusView (PS));
+		//entry.callback.AddListener ((eventData) => KomaPointerDown(p));
+		//trigger.triggers.Add (entry);
+		////PointerUpset
+		//EventTrigger.Entry entry2 = new EventTrigger.Entry ();
+		//entry2.eventID = EventTriggerType.PointerUp;
+		//entry2.callback.AddListener ((eventData) => KomaPointerUp());
+		//trigger.triggers.Add (entry2);
+
 
 		//敵コマの場合180度回転させる
-		if(charTagCache == "ene"){
-			Komas[preCache].transform.Rotate(new Vector3(0,0,180));
-			isKoma[v,h] = -1;
-		}else isKoma[v,h] = 1;
+		if (playerTag == "player2")
+		{
+			allKomas[globalKomaIndex].transform.Rotate(new Vector3(0, 0, 180));
+			FieldInfo.instance.cellStatus[v, h] = CellStatus.PLAYER_2;
+		}
+		else
+		{
+			FieldInfo.instance.cellStatus[v, h] = CellStatus.PLAYER_1;
+		}
 		
-		preCache++;
-		//deckCnt++;
 	}
 
 	/// <summary>
@@ -298,13 +229,13 @@ public class BattleManager : MonoBehaviour {
 			int t = 1;
 			bool permissionFlg = true;
 			//detailView.charStatusModeFlg1 = false;
-			PeiceStatus br = Komas[bint].GetComponent<PeiceStatus>();
+			PeiceStatus br = allKomas[bint].GetComponent<PeiceStatus>();
 			//自分のターンに相手駒を触った時の動作
 #if TestOut
-			if(PlayerSwitch && Komas[bint].tag == "ene"){
+			if(PlayerSwitch && allKomas[bint].tag == "ene"){
 				return;
 				//相手ターンに自分駒を押した時の動作
-			}else if(!PlayerSwitch && Komas[bint].tag == "my"){
+			}else if(!PlayerSwitch && allKomas[bint].tag == "my"){
 				return;
 			}
 #endif
@@ -318,7 +249,7 @@ public class BattleManager : MonoBehaviour {
 				for(int v = 0;v<9;v++){
 					for(int h = 0;h<9;h++){
 							//存在チェック
-							if(isKoma[v,h] !=0){
+							if(FieldInfo.instance.cellStatus[v,h] !=0){
 								//onKoma =false;//Debug.Log("駒と被っているため次へ")
 							}else panelCreate(v,h,bint);
 						}
@@ -326,7 +257,7 @@ public class BattleManager : MonoBehaviour {
 				
 			}else{
 
-				if(Komas[bint].tag == "ene")　t = -1;
+				if(allKomas[bint].tag == "ene")　t = -1;
 
 				//p = Koma_Potision[br.v,br.h];
 				//Debug.Log("[元の位置]"+br.v+","+br.h);
@@ -393,17 +324,17 @@ public class BattleManager : MonoBehaviour {
 	public bool VectorCheck(int v,int h,int bint){
 
 		//Debug.Log("[移動可能位置]"+v+"," +h);
-		int t;
+		CellStatus check;
 		//自分or相手が他の駒と重なった回数
 		int coverCnt=0;
 		bool permisson = true;
-		PeiceStatus br = Komas[bint].GetComponent<PeiceStatus>();
-		
-		if(Komas[bint].tag == "my")t = 1;
-		else t= -1;
+		PeiceStatus br = allKomas[bint].GetComponent<PeiceStatus>();
 
-		if(isKoma[v,h] != 0){
-			if(isKoma[v,h] != t){
+		check = (allKomas[bint].tag == "player1") ? CellStatus.PLAYER_1: CellStatus.PLAYER_2;
+
+		if(FieldInfo.instance.cellStatus[v,h] != CellStatus.EMPTY){
+			if(FieldInfo.instance.cellStatus[v,h] != check)
+			{
 				coverCnt = 1;
 				permisson = true;　　　//Debug.Log("敵と被っているが一度めなので許容");
 			}else permisson = false;　//Debug.Log("自分のコマと被っているためfalse");
@@ -443,8 +374,8 @@ public class BattleManager : MonoBehaviour {
 		int point = bint;
 
 		Button navigatePanels;
-		navigatePanels = Instantiate(navigateOrigine,banTransform);
-		navigatePanels.transform.SetParent(banTransform,false);
+		navigatePanels = Instantiate(navigateOrigine,FieldInfo.instance.fieldTransform);
+		navigatePanels.transform.SetParent(FieldInfo.instance.fieldTransform,false);
 		navigatePanels.transform.localScale = Vector3.one;
 		navigatePanels.transform.localPosition = Koma_Potision[v,h];
 		navigatePanels.onClick.AddListener(()=>moving(v2,h2,point));
@@ -459,7 +390,7 @@ public class BattleManager : MonoBehaviour {
 	public void moving(int movedV,int movedH,int bint){		
 
 		
-		PeiceStatus myKoma = Komas[bint].GetComponent<PeiceStatus>();
+		PeiceStatus myKoma = allKomas[bint].GetComponent<PeiceStatus>();
 		//int cacheV = myKoma.v;
 		//int cacheH = myKoma.h;
 		DestroyPanels();
@@ -467,12 +398,12 @@ public class BattleManager : MonoBehaviour {
 		if(myKoma.isBench){//駒がベンチにある場合
 			//一時的に駒の種類を覚えておく
 			int Filedinchash = myKoma.status.Id;
-			charTagCache = Komas[bint].tag;
+			charTagCache = allKomas[bint].tag;
 
 			//ベンチから指す駒情報をpreCntにキャッシュ
 			DestroyKoma(bint);
-			preCache = bint;
-			createPiece(movedV,movedH,Filedinchash);
+			globalKomaIndex = bint;
+			createPiece(movedV,movedH,Filedinchash, "player1");
 			PlayerSwitching();
 
 
@@ -482,30 +413,30 @@ public class BattleManager : MonoBehaviour {
 			Transform bench;
 			GameObject[] clone;
 
-			isKoma[myKoma.v,myKoma.h] = 0;
-			Komas[bint].transform.localPosition = Koma_Potision[movedV,movedH];
+			FieldInfo.instance.cellStatus[myKoma.v,myKoma.h] = 0;
+			allKomas[bint].transform.localPosition = Koma_Potision[movedV,movedH];
 		 	myKoma.v = movedV;
 		 	myKoma.h = movedH;
 			
 			
 			
-			if(Komas[bint].tag == "ene"){//動いた駒が敵駒
+			if(allKomas[bint].tag == "ene"){//動いた駒が敵駒
 				clone = GameObject.FindGameObjectsWithTag("my");
 				charTag = "ene";
-				bench = banContents2;
-				isKoma[movedV,movedH] = -1;
+				bench = stockPlayer2;
+				FieldInfo.instance.cellStatus[movedV,movedH] = CellStatus.PLAYER_2;
 			}else{
 				clone = GameObject.FindGameObjectsWithTag("ene");
 				charTag = "my";
-				bench =banContents1;
-				isKoma[movedV,movedH] = 1;
+				bench =stockPlayer1;
+				FieldInfo.instance.cellStatus[movedV,movedH] = CellStatus.PLAYER_1;
 			}
 
 			//移動した場所に駒が存在しているかのチェック
-			if(isKoma[movedV,movedH] != 0){
+			if(FieldInfo.instance.cellStatus[movedV,movedH] != 0){
 				//存在している場合サーチ
 				foreach(var clones in clone){
-					if(clones.transform.localPosition == Komas[bint].transform.localPosition){
+					if(clones.transform.localPosition == allKomas[bint].transform.localPosition){
 						PeiceStatus br = clones.GetComponent<PeiceStatus>();
 						//Debug.Log("benchin");
 						clones.transform.SetParent(bench);
@@ -520,8 +451,8 @@ public class BattleManager : MonoBehaviour {
 #if CPU_CPU_MODE
 							//終了時処理
 
-							Komas = new Button[40];
-							isKoma = new int[9,9];
+							allKomas = new Button[40];
+							FieldInfo.instance.cellStatus = new int[9,9];
 							save.KIFU("end","",0,0,0,0);
 							Debug.Log("終了");
 							//次の処理
@@ -532,14 +463,14 @@ public class BattleManager : MonoBehaviour {
 							startFLG = true;
 
 #else
-							if(charTag == "ene"){
-							Result_text.text = "プレイヤー２の勝利";
-							Result_text.color = Color.blue;
-							}else{
-								Result_text.text = "プレイヤー１の勝利";
-								Result_text.color = Color.red;
-							}
-							Result_text.gameObject.SetActive(true);
+							//if(charTag == "ene"){
+							//Result_text.text = "プレイヤー２の勝利";
+							//Result_text.color = Color.blue;
+							//}else{
+							//	Result_text.text = "プレイヤー１の勝利";
+							//	Result_text.color = Color.red;
+							//}
+							//Result_text.gameObject.SetActive(true);
 #endif
 						}
 
@@ -582,12 +513,12 @@ public class BattleManager : MonoBehaviour {
 
 	//普通の破壊か,ストックからの移動か
 	public void DestroyKoma(int bint){
-		Destroy(Komas[bint].gameObject);//普通の破壊
+		Destroy(allKomas[bint].gameObject);//普通の破壊
 		
 	}
 
 	public void Efect_Selection(int bint){
-		PeiceStatus br = Komas[bint].GetComponent<PeiceStatus>();
+		PeiceStatus br = allKomas[bint].GetComponent<PeiceStatus>();
 
 		switch(br.status.EfectType){
 			case BaseObject.ET.Atack:
@@ -623,7 +554,7 @@ public class BattleManager : MonoBehaviour {
 
 		//StartCoroutine(EfectMessage());
 		//if(selectedEfect){
-			PeiceStatus br = Komas[bint].GetComponent<PeiceStatus>();
+			PeiceStatus br = allKomas[bint].GetComponent<PeiceStatus>();
 			int orizinalNum = br.status.Id;
 			//int v = br.v;
 			//int h = br.h;
@@ -631,7 +562,7 @@ public class BattleManager : MonoBehaviour {
 			br.isEfect = true;
 			//ステータスのみ変更している
 			br.Initial(peicemst.getBaseObject(br.status.EfectNumber));
-			//Komas[bint].GetComponentInChildren<Text>().text = br.name;
+			//allKomas[bint].GetComponentInChildren<Text>().text = br.name;
 			
 			br.status.EfectType = BaseObject.ET.None;
 			//取られた時に元の駒に戻るための前のid
@@ -661,7 +592,7 @@ public class BattleManager : MonoBehaviour {
 		
 		//selectedEfect = true;
 		
-		selectEfectForm.gameObject.SetActive(true);
+		//selectEfectForm.gameObject.SetActive(true);
 		//この効果発動選択中は他の操作はできないようにboolを設ける
 		Yes_Button.onClick.AddListener(()=>Efect_Yes(bint));
 		//No_Button.onClick.AddListener(Efect_No);
@@ -671,7 +602,7 @@ public class BattleManager : MonoBehaviour {
 
 	public void Efect_Yes(int bint){
 		//今は効果一度だけ発動すればターン交代でいいが、これからは効果が連鎖する可能性あり
-		selectEfectForm.gameObject.SetActive(false);
+		//selectEfectForm.gameObject.SetActive(false);
 		Efect_Selection(bint);
 		PlayerSwitching();
 		//Yes_Button.onClick.RemoveAllListeners();
@@ -681,7 +612,7 @@ public class BattleManager : MonoBehaviour {
 		
 	}
 	public void Efect_No(){
-		selectEfectForm.gameObject.SetActive(false);
+		//selectEfectForm.gameObject.SetActive(false);
 		//bratsh[brnt] = null;
 		//Yes_Button.onClick.RemoveAllListeners();
 		//Efect_Selection(bint);
@@ -696,7 +627,7 @@ public class BattleManager : MonoBehaviour {
 	//IEnumerator 
 	public void Skill_MoveChange(int bint){
 			
-		PeiceStatus br = Komas[bint].GetComponent<PeiceStatus>();
+		PeiceStatus br = allKomas[bint].GetComponent<PeiceStatus>();
 		br.isEfect = true;
 		//int orizinalNum = br.Id;
 		//if(br.status.EfectType == BaseObject.ET.Change){
@@ -707,7 +638,7 @@ public class BattleManager : MonoBehaviour {
 		br.Move_Pulus(peicemst.getBaseObject(br.status.EfectNumber).move);
 		//br.status.EfectNumber = orizinalNum;
 		//br.status.EfectType = BaseObject.ET.None;
-		Komas[bint].GetComponentInChildren<Text>().color = Color.red;
+		allKomas[bint].GetComponentInChildren<Text>().color = Color.red;
 		//selectEfectForm.gameObject.SetActive(false);
 		
 		
@@ -716,15 +647,15 @@ public class BattleManager : MonoBehaviour {
 	}
 
 
-	public void OnPlayer(){
-		this.openedMyBench = !this.openedMyBench;
-		animator1.SetBool("parametor",this.openedMyBench);
-	}
+	//public void OnPlayer(){
+	//	this.openedMyBench = !this.openedMyBench;
+	//	animator1.SetBool("parametor",this.openedMyBench);
+	//}
 
-	public void OnEnemy(){
-		this.openedEnemyBench = !this.openedEnemyBench;
-		animator2.SetBool("parametor",this.openedEnemyBench);
-	}
+	//public void OnEnemy(){
+	//	this.openedEnemyBench = !this.openedEnemyBench;
+	//	animator2.SetBool("parametor",this.openedEnemyBench);
+	//}
 
 	public void TurnChange(){
 		turnNumber += 1;
@@ -749,39 +680,14 @@ public class BattleManager : MonoBehaviour {
 		
 		if(detailTime > 1.0f){
 			Debug.Log("detail");
-			PeiceStatus peice = Komas[KomaCache].GetComponent<PeiceStatus>();
-			detailView.SwitchStatusView(peice);
+			PeiceStatus peice = allKomas[KomaCache].GetComponent<PeiceStatus>();
+			//detailView.SwitchStatusView(peice);
 		}else{
 			Debug.Log("move");
 			createPanel(KomaCache);
 		}
 		detailTime = 0;
 	}
-
-	void CPUTurn(){
-		CPU cpu = new CPU();
-		int randEnemy;
-		string moveElements;	
-		randEnemy =  cpu.SelectEnemy(Komas,"ene");
-		PeiceStatus PS = Komas[randEnemy].GetComponent<PeiceStatus>();
-		moveElements = cpu.SelectKoma(isKoma,PS);
-		string[] ST = moveElements.Split(',');
-		save.KIFU("ene",PS.status.PeiceName,PS.v,PS.h,int.Parse(ST[0]),int.Parse(ST[1]));
-		moving(int.Parse(ST[0]),int.Parse(ST[1]),int.Parse(ST[2]));
-	}
-
-	void CPUTurn2(){
-		CPU cpu = new CPU();
-		int randEnemy;
-		string moveElements;
-		randEnemy =  cpu.SelectEnemy(Komas,"my");
-		PeiceStatus PS = Komas[randEnemy].GetComponent<PeiceStatus>();
-		moveElements = cpu.SelectKoma(isKoma,Komas[randEnemy].GetComponent<PeiceStatus>());
-		string[] ST = moveElements.Split(',');
-		save.KIFU("my",PS.status.PeiceName,PS.v,PS.h,int.Parse(ST[0]),int.Parse(ST[1]));
-		moving(int.Parse(ST[0]),int.Parse(ST[1]),int.Parse(ST[2]));
-	}
-
 
 
 }
