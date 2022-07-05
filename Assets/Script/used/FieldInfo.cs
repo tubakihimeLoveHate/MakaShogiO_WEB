@@ -52,8 +52,8 @@ public class FieldInfo : MonoBehaviour
         Tuple.Create(2,6),
         Tuple.Create(2,7),
         Tuple.Create(2,8),
-        Tuple.Create(1,1),
         Tuple.Create(1,7),
+        Tuple.Create(1,1),
         Tuple.Create(0,0),
         Tuple.Create(0,1),
         Tuple.Create(0,2),
@@ -88,4 +88,14 @@ public class FieldInfo : MonoBehaviour
     {
         
     }
+
+    public void DestroyPanels()
+    {
+        var clones = GameObject.FindGameObjectsWithTag("panels");
+        foreach (var clone in clones)
+        {
+            Destroy(clone);
+        }
+    }
+
 }

@@ -126,7 +126,7 @@ public class GameManager : MonoBehaviour {
 
 		//detailView = detail.GetComponent<DetailView>();
 
-		if(Player.newAccount)Player.firstInit();
+		//if(Player.newAccount)Player.firstInit();
 
 		//サイドメニュー
 		sideAnimator = sidemenu.GetComponent<Animator>();

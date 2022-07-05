@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+//TODO:なぜstaticにしている？static classにはしなくてよい？
 public class Player {
 
 //プレイヤー基本情報
@@ -17,25 +18,12 @@ public class Player {
 	public static float nextLevel = 50;
 
 	
-
-	//参照用
-	//public static Deckmanager deck = new Deckmanager();
 	public static PeiceMST peiceData = new PeiceMST();
-	//TODO:デッキはidで管理すれば良い 
 
-	//手持ち駒リスト
-	//public　static List<CharPrefab> myList = new List<CharPrefab>();
-
-	//0なら持ってない1以上ならその枚数所持している
-	//idがキー
 	public static int[] myList = new int[16];
-	//バトル用デッキ1
-	//public static List<CharPrefab> mydeck = new List<CharPrefab>();
 	public static int[] mydeck = new int[20]; 
 
 	//全てのカードキャッシュ。これは保存する必要ない
-	//public static List<CharPrefab> allList = new List<CharPrefab>();
-	//public static List<CharPrefab> classicDeck = new List<CharPrefab>();
 	public static int[] classicDeck = new int[20];
 	public static string[] deckname = new string[10];//ゆくゆく増やして行くつもり
 
@@ -45,53 +33,30 @@ public class Player {
 	static int[] firstTable = {0,0,0,0,0,0,0,0,0,6,5,1,2,3,4,7,4,3,2,1};
 	
 
-	public  static bool firstInit(){
+	public  static bool FirstInit(){
 
-		//自分の所持リスト
-		/* 
-		for(int i=0;i<9;i++){
-			AddMyList(0);
+		if (newAccount)
+		{
+			//新規駒所持リストの作成
+			if (newAccount)
+			{
+				myList[0] += 9;
+				myList[1] += 2;
+				myList[2] += 2;
+				myList[3] += 2;
+				myList[4] += 2;
+				myList[5] += 1;
+				myList[6] += 1;
+				myList[7] += 1;
+				myList[8] += 1;
+			}
+			mydeck = firstTable;
+			classicDeck = firstTable;
+
+
+			deckname[0] = "スタンダート";
+			newAccount = false;
 		}
-		AddMyList(6);
-		AddMyList(5);
-		AddMyList(1);
-		AddMyList(2);
-		AddMyList(3);
-		AddMyList(4);
-		AddMyList(7);
-		AddMyList(4);
-		AddMyList(3);
-		AddMyList(2);
-		AddMyList(1);
-		AddMyList(8);//玉は初期デッキに含めない
-		for(int y = 9;y<30;y++){
-			AddMyList(y);
-		}*/
-		//新規駒所持リストの作成
-		if(newAccount){
-			myList[0] += 9;
-			myList[1] += 2;
-			myList[2] += 2;
-			myList[3] += 2;
-			myList[4] += 2;
-			myList[5] += 1;
-			myList[6] += 1;
-			myList[7] += 1;
-			myList[8] += 1;
-		}
-		/* 
-		foreach(int i in firstTable){
-			mydeck.Add(deck.PrivateLoad(i));
-			classicDeck.Add(deck.PrivateLoad(i));
-		}*/
-		mydeck = firstTable;
-		classicDeck = firstTable;
-		//玉は最初デッキに含まないが一覧にはある
-
-
-		deckname[0] = "スタンダート";
-		newAccount = false;
-		
 		return true;
 		
 	}

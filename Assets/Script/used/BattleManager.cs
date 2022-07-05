@@ -28,8 +28,6 @@ public class BattleManager : MonoBehaviour {
 	private RectTransform stockPlayer1;
 	private RectTransform stockPlayer2;
 
-	//prefabの添字用
-	int globalKomaIndex = 0;
 
 	//敵のコマ変更はここから
 	private int[] enemyTable = {0,0,0,0,0,0,0,0,0,6,5,1,2,3,4,7,4,3,2,1}; 
@@ -88,6 +86,8 @@ public class BattleManager : MonoBehaviour {
 	private Button komaPrefab;
 	private Button movablePrefab;
 	public Button[] allKomas = new Button[40];//全体のprefab管理
+	int globalKomaIndex = 0;
+	string turn = "player1";
 
 	public static BattleManager instance;
 
@@ -114,6 +114,7 @@ public class BattleManager : MonoBehaviour {
 		//制限時間
 		//timer.GetComponent<TimeUI>();
 		//timebar = timer.GetComponent<TimeUI>();
+		Player.FirstInit();
 		InitialSetting(Player.mydeck, "player1");
 		InitialSetting(enemyTable, "player2");
 	}
@@ -161,6 +162,7 @@ public class BattleManager : MonoBehaviour {
 
 		for(int idx = 0; idx < peiceTable.Length; idx++)
 		{
+			Debug.Log(peiceTable[idx]);
 			createPiece(settingPosition[idx].Item1, settingPosition[idx].Item2, peiceTable[idx], playerTag);
 			globalKomaIndex++;
 		}
@@ -183,7 +185,7 @@ public class BattleManager : MonoBehaviour {
 
 		//ボタン関数付与
 		PeiceStatus peiceStatus = allKomas[globalKomaIndex].GetComponent<PeiceStatus>();
-		int buttonIndex = globalKomaIndex;
+		peiceStatus.runtimeId = globalKomaIndex;
 		//allKomas[globalKomaIndex].onClick.AddListener(() => createPanel(p));
 
 		//ステータス取得
@@ -221,144 +223,9 @@ public class BattleManager : MonoBehaviour {
 		
 	}
 
-	/// <summary>
-	/// 駒選択時の移動範囲決定-駒のPointerUpで呼び出し
-	/// </summary>
-	/// <param name="bint"></param>
-	public void createPanel(int bint){
-			int t = 1;
-			bool permissionFlg = true;
-			//detailView.charStatusModeFlg1 = false;
-			PeiceStatus br = allKomas[bint].GetComponent<PeiceStatus>();
-			//自分のターンに相手駒を触った時の動作
-#if TestOut
-			if(PlayerSwitch && allKomas[bint].tag == "ene"){
-				return;
-				//相手ターンに自分駒を押した時の動作
-			}else if(!PlayerSwitch && allKomas[bint].tag == "my"){
-				return;
-			}
-#endif
-			DestroyPanels();
+	
 
-			if(br.isBench){//ベンチのこまをタッチした時の処理
-				
-
-				//bool onKoma = true;//この場合trueはいないという意味
-		
-				for(int v = 0;v<9;v++){
-					for(int h = 0;h<9;h++){
-							//存在チェック
-							if(FieldInfo.instance.cellStatus[v,h] !=0){
-								//onKoma =false;//Debug.Log("駒と被っているため次へ")
-							}else panelCreate(v,h,bint);
-						}
-					}
-				
-			}else{
-
-				if(allKomas[bint].tag == "ene")　t = -1;
-
-				//p = Koma_Potision[br.v,br.h];
-				//Debug.Log("[元の位置]"+br.v+","+br.h);
-				//vCache = br.v;
-				//hCache = br.h;
-				//p2.z = 0;		//押した駒の位置
-				if(br.status.Marchingtype == BaseObject.MT.front){
-
-					for(int i = 0;i<8;i++){	//方角
-						//p2 = p;
-						if(br.status.move[i]==0)	continue;
-						//Debug.Log("一つの方向");
-						for(int o = 1;o<br.status.move[i]+1;o++){					//1方向の移動範囲
-							try{//permissionflg共通変数にする？
-								if(i==0) permissionFlg = VectorCheck(br.v-o*t,br.h,bint);
-								if(i==1) permissionFlg = VectorCheck(br.v-o*t,br.h+o*t,bint);
-								if(i==2) permissionFlg = VectorCheck(br.v,br.h+o*t,bint);
-								if(i==3) permissionFlg = VectorCheck(br.v+o*t,br.h+o*t,bint);
-								if(i==4) permissionFlg = VectorCheck(br.v+o*t,br.h,bint);
-								if(i==5) permissionFlg = VectorCheck(br.v+o*t,br.h-o*t,bint);
-								if(i==6) permissionFlg = VectorCheck(br.v,br.h-o*t,bint);
-								if(i==7) permissionFlg = VectorCheck(br.v-o*t,br.h-o*t,bint);
-
-								if(permissionFlg == false)break;
-
-							}catch{
-								//Debug.Log("index範囲外のため例外処理");
-								continue;
-							}
-						}
-					}
-				}else{
-					//Debug.Log("MType = stright.start");//正面でも動作するように修正完了
-					for(int i = 0;i <8;i++){//方がく
-						//p2 = p;
-						
-						if(br.status.move[i] == 0) continue;//Debug.Log("距離が０のため次の方角へ");
-							try{		
-								if(i == 0) if(VectorCheck(br.v-br.status.move[i]*t,br.h,bint)){};
-								if(i == 1) if(VectorCheck(br.v-br.status.move[i]*t,br.h+t,bint)){};
-								if(i == 2) if(VectorCheck(br.v,br.h+br.status.move[i]*t,bint)){};
-								if(i == 3) if(VectorCheck(br.v+br.status.move[i]*t,br.h+t,bint)){};//動きが１つの方向のみになる
-								if(i == 4) if(VectorCheck(br.v+br.status.move[i]*t,br.h,bint)){};
-								if(i == 5) if(VectorCheck(br.v+br.status.move[i]*t,br.h-t,bint)){};
-								if(i == 6) if(VectorCheck(br.v,br.h-br.status.move[i]*t,bint)){};
-								if(i==7) if(VectorCheck(br.v-br.status.move[i]*t,br.h-t,bint)){};
-							}catch{
-								//Debug.Log("index範囲外のため例外処理");
-								continue;
-							}
-
-					}
-				}
-			}
-		}
-
-	/// <summary>
-	/// 範囲チェック＋重複チェック
-	/// </summary>
-	/// <param name="v">moved</param>
-	/// <param name="h">moved</param>
-	/// <param name="bint"></param>
-	/// <returns></returns>
-	public bool VectorCheck(int v,int h,int bint){
-
-		//Debug.Log("[移動可能位置]"+v+"," +h);
-		CellStatus check;
-		//自分or相手が他の駒と重なった回数
-		int coverCnt=0;
-		bool permisson = true;
-		PeiceStatus br = allKomas[bint].GetComponent<PeiceStatus>();
-
-		check = (allKomas[bint].tag == "player1") ? CellStatus.PLAYER_1: CellStatus.PLAYER_2;
-
-		if(FieldInfo.instance.cellStatus[v,h] != CellStatus.EMPTY){
-			if(FieldInfo.instance.cellStatus[v,h] != check)
-			{
-				coverCnt = 1;
-				permisson = true;　　　//Debug.Log("敵と被っているが一度めなので許容");
-			}else permisson = false;　//Debug.Log("自分のコマと被っているためfalse");
-		}
-				
-		if(permisson){
-			panelCreate(v,h,bint);
-		
-			if(coverCnt == 1){
-				coverCnt = 0;
-				//Debug.Log("相手のコマと一度重なっていて次は許容しないためfalse");
-				return false;
-			}
-		}
-		return permisson;
-	}
-
-	public void DestroyPanels(){
-		var clones = GameObject.FindGameObjectsWithTag("panels");
-		foreach(var clone in clones){
-			Destroy(clone);
-		}
-		//navigateCnt = 0;
-	}
+	
 
 	/// <summary>
 	/// 実際にパネルを描画-駒のPointerUpに設定
@@ -393,7 +260,7 @@ public class BattleManager : MonoBehaviour {
 		PeiceStatus myKoma = allKomas[bint].GetComponent<PeiceStatus>();
 		//int cacheV = myKoma.v;
 		//int cacheH = myKoma.h;
-		DestroyPanels();
+		//DestroyPanels();
 		//駒をベンチからおく処理
 		if(myKoma.isBench){//駒がベンチにある場合
 			//一時的に駒の種類を覚えておく
@@ -684,7 +551,7 @@ public class BattleManager : MonoBehaviour {
 			//detailView.SwitchStatusView(peice);
 		}else{
 			Debug.Log("move");
-			createPanel(KomaCache);
+			//createPanel(KomaCache);
 		}
 		detailTime = 0;
 	}
