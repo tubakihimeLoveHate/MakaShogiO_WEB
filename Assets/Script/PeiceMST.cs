@@ -17,10 +17,8 @@ public class PeiceMST {
 			while(true){
 				if(cnt==maxMSTSize-1){
 					break;
-				}else{	
-					//Debug.Log(getPath + "peice" +cnt.ToString());
+				}else{
 					peiceMST[cnt] = Resources.Load<BaseObject>(getPath + "peice" +cnt.ToString());
-					
 				}
 				cnt++;
 				
@@ -36,10 +34,7 @@ public class PeiceMST {
 			Debug.Log("[Debug]:不正なデータベースアクセスです");
 			return peiceMST[0];
 		}
-		else return peiceMST[num];
-		
-			
-		
+		return peiceMST[num];
 	}
 
 	public string getPeiceName(int num){

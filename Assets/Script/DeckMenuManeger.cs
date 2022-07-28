@@ -212,7 +212,7 @@ public class DeckMenuManeger : MonoBehaviour {
 		EventTrigger trigger = button.GetComponent<EventTrigger>();
 		EventTrigger.Entry entry = new EventTrigger.Entry();
 		entry.eventID = EventTriggerType.PointerDown;
-		entry.callback.AddListener((eventData)=> detailView.SwitchStatusView(CT));
+		//entry.callback.AddListener((eventData)=> detailView.SwitchStatusView(CT));
 		trigger.triggers.Add(entry);
 	}
 
@@ -221,7 +221,6 @@ public class DeckMenuManeger : MonoBehaviour {
 	//編成で駒を押した時の処理、選択アニメーション
 	public void OnFirstTapKoma(int f){
 		//detailView.charStatusModeFlg1 = false;
-		detailView.OnDeltailOut_reset();
 		PeiceStatus CP1 = changeKoma[f].GetComponent<PeiceStatus>();
 		Image prefabHightLight;
 	　　 changeSelectCatsh = f;
@@ -269,7 +268,6 @@ public class DeckMenuManeger : MonoBehaviour {
 	public void OnChangeMyKoma(int dint){
 		//player.mydeckを変更する
 		//detailView.charStatusModeFlg1 = false;
-		detailView.OnDeltailOut_reset();
 		int dcache  = dint; 
 		if(selectOn){
 			PeiceStatus PS = Koma_model[dint].GetComponent<PeiceStatus>();

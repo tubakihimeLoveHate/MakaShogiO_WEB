@@ -11,10 +11,6 @@ using System;
 public class BattleManager : MonoBehaviour {
 
 	PeiceMST peicemst;//ステータスデータ
-	
-	string charTagCache;//駒のtagキャッシュ
-	
-	Vector3[,] Koma_Potision;//盤の位置情報表
 
 	//移動まえのいちを格納
 	int vCache;
@@ -23,7 +19,7 @@ public class BattleManager : MonoBehaviour {
 
 	//<移動先ナビゲートUI関係>
 	//移動可能先を示すボタンPrefab
-	Button navigateOrigine;
+	
 	//public Transform PanelsTransform;
 	private RectTransform stockPlayer1;
 	private RectTransform stockPlayer2;
@@ -87,7 +83,7 @@ public class BattleManager : MonoBehaviour {
 	private Button movablePrefab;
 	public Button[] allKomas = new Button[40];//全体のprefab管理
 	int globalKomaIndex = 0;
-	string turn = "player1";
+	public string turn = "player1";
 
 	public static BattleManager instance;
 
@@ -109,7 +105,6 @@ public class BattleManager : MonoBehaviour {
 		movablePrefab = Resources.Load<Button>("Plefab/used/MovableButton");
 		//animator1 = Bench1.GetComponent<Animator>();
 		//animator2 = Bench2.GetComponent<Animator>();
-
 
 		//制限時間
 		//timer.GetComponent<TimeUI>();
@@ -162,7 +157,6 @@ public class BattleManager : MonoBehaviour {
 
 		for(int idx = 0; idx < peiceTable.Length; idx++)
 		{
-			Debug.Log(peiceTable[idx]);
 			createPiece(settingPosition[idx].Item1, settingPosition[idx].Item2, peiceTable[idx], playerTag);
 			globalKomaIndex++;
 		}
@@ -181,12 +175,13 @@ public class BattleManager : MonoBehaviour {
 		allKomas[globalKomaIndex] = Instantiate(komaPrefab, FieldInfo.instance.fieldTransform);	
 		allKomas[globalKomaIndex].transform.SetParent(FieldInfo.instance.fieldTransform, false);
 		allKomas[globalKomaIndex].transform.localScale = Vector3.one;
-		allKomas[globalKomaIndex].transform.localPosition = FieldInfo.instance.fieldPosition[v,h];
+		allKomas[globalKomaIndex].transform.localPosition = FieldInfo.instance.fieldCell[v,h].cellPosition;
+		FieldInfo.instance.fieldCell[v, h].komaId = globalKomaIndex;
 
 		//ボタン関数付与
 		PeiceStatus peiceStatus = allKomas[globalKomaIndex].GetComponent<PeiceStatus>();
 		peiceStatus.runtimeId = globalKomaIndex;
-		//allKomas[globalKomaIndex].onClick.AddListener(() => createPanel(p));
+		allKomas[globalKomaIndex].onClick.AddListener(() => peiceStatus.CreateNavigation());
 
 		//ステータス取得
 		peiceStatus.Initial(peicemst.getBaseObject(peiceNo));
@@ -195,193 +190,130 @@ public class BattleManager : MonoBehaviour {
 		peiceStatus.v = v;
 
 		//Event取得
-		//EventTrigger trigger = allKomas[globalKomaIndex].GetComponent<EventTrigger> ();
-		//trigger.triggers = new List<EventTrigger.Entry>();
-		////PointerDownSet
-		//EventTrigger.Entry entry = new EventTrigger.Entry ();
-		//entry.eventID = EventTriggerType.PointerDown;
-		////entry.callback.AddListener ((eventData) => detailView.SwitchStatusView (PS));
-		//entry.callback.AddListener ((eventData) => KomaPointerDown(p));
-		//trigger.triggers.Add (entry);
-		////PointerUpset
-		//EventTrigger.Entry entry2 = new EventTrigger.Entry ();
-		//entry2.eventID = EventTriggerType.PointerUp;
-		//entry2.callback.AddListener ((eventData) => KomaPointerUp());
-		//trigger.triggers.Add (entry2);
+		EventTrigger trigger = allKomas[globalKomaIndex].GetComponent<EventTrigger> ();
+		trigger.triggers = new List<EventTrigger.Entry>();
+		//PointerDown
+		EventTrigger.Entry pressDown = new EventTrigger.Entry ();
+		pressDown.eventID = EventTriggerType.PointerDown;
+		pressDown.callback.AddListener ((data) => DetailView.instance.PointerDown(peiceStatus));
+		trigger.triggers.Add (pressDown);
+		//PointerUpset
+		EventTrigger.Entry pressUp = new EventTrigger.Entry ();
+		pressUp.eventID = EventTriggerType.PointerUp;
+		pressUp.callback.AddListener ((data) => DetailView.instance.PointerUp());
+		trigger.triggers.Add (pressUp);
 
 
 		//敵コマの場合180度回転させる
 		if (playerTag == "player2")
 		{
 			allKomas[globalKomaIndex].transform.Rotate(new Vector3(0, 0, 180));
-			FieldInfo.instance.cellStatus[v, h] = CellStatus.PLAYER_2;
+			FieldInfo.instance.fieldCell[v, h].cellStatus = CellStatus.PLAYER_2;
 		}
 		else
 		{
-			FieldInfo.instance.cellStatus[v, h] = CellStatus.PLAYER_1;
+			FieldInfo.instance.fieldCell[v, h].cellStatus = CellStatus.PLAYER_1;
 		}
 		
 	}
 
-	
+	public void MoveByBench(int movedV, int movedH, int runtimeId)
+	{
+		PeiceStatus myKoma = allKomas[runtimeId].GetComponent<PeiceStatus>();
+		int Filedinchash = myKoma.status.Id;
 
-	
+		DestroyKoma(runtimeId);
+		createPiece(movedV, movedH, Filedinchash, turn);
+		instance.PlayerSwitching();
+	}
 
-	/// <summary>
-	/// 実際にパネルを描画-駒のPointerUpに設定
-	/// </summary>
-	/// <param name="v"></param>
-	/// <param name="h"></param>
-	/// <param name="bint">全体の駒番号</param>
-	public  void panelCreate(int v,int h,int bint){
-
-		//移動先の変数
-		int v2 = v;
-		int h2 = h;
-		int point = bint;
-
-		Button navigatePanels;
-		navigatePanels = Instantiate(navigateOrigine,FieldInfo.instance.fieldTransform);
-		navigatePanels.transform.SetParent(FieldInfo.instance.fieldTransform,false);
-		navigatePanels.transform.localScale = Vector3.one;
-		navigatePanels.transform.localPosition = Koma_Potision[v,h];
-		navigatePanels.onClick.AddListener(()=>moving(v2,h2,point));
-		navigatePanels.tag = "panels";
+	//普通の破壊か,ストックからの移動か
+	public void DestroyKoma(int runtimeId)
+	{
+		Destroy(allKomas[runtimeId].gameObject);//普通の破壊
 	}
 
 	/// <summary>
 	/// パネル押下時の駒を動かした時の処理
 	/// </summary>
 	/// <param name="v,h">移動先の位置</param>
- 	/// <param name="bint">駒の添字</param>
-	public void moving(int movedV,int movedH,int bint){		
+	/// <param name="bint">駒の添字</param>
+	public void MoveByField(int targetV,int targetH,int runtimeId){		
 
 		
-		PeiceStatus myKoma = allKomas[bint].GetComponent<PeiceStatus>();
-		//int cacheV = myKoma.v;
-		//int cacheH = myKoma.h;
-		//DestroyPanels();
-		//駒をベンチからおく処理
-		if(myKoma.isBench){//駒がベンチにある場合
-			//一時的に駒の種類を覚えておく
-			int Filedinchash = myKoma.status.Id;
-			charTagCache = allKomas[bint].tag;
-
-			//ベンチから指す駒情報をpreCntにキャッシュ
-			DestroyKoma(bint);
-			globalKomaIndex = bint;
-			createPiece(movedV,movedH,Filedinchash, "player1");
-			PlayerSwitching();
+		PeiceStatus myKoma = allKomas[runtimeId].GetComponent<PeiceStatus>();
+		FieldCell nowCell = FieldInfo.instance.fieldCell[myKoma.v, myKoma.h];
+		FieldCell targetCell = FieldInfo.instance.fieldCell[targetV, targetH];
 
 
-		}else{//盤内のこまを動かす処理
-			//自分か敵で内容変化する
-			string charTag ="";
-			Transform bench;
-			GameObject[] clone;
+		nowCell.cellStatus = CellStatus.EMPTY;	
+		allKomas[runtimeId].transform.localPosition = targetCell.cellPosition;
+		Button targetButton = allKomas[targetCell.komaId];
+		PeiceStatus targetStatus = targetButton.GetComponent<PeiceStatus>();
 
-			FieldInfo.instance.cellStatus[myKoma.v,myKoma.h] = 0;
-			allKomas[bint].transform.localPosition = Koma_Potision[movedV,movedH];
-		 	myKoma.v = movedV;
-		 	myKoma.h = movedH;
+
+		//移動した場所に駒が存在しているかのチェック
+		if (nowCell.cellStatus != targetCell.cellStatus && targetCell.cellStatus != CellStatus.EMPTY){
 			
-			
-			
-			if(allKomas[bint].tag == "ene"){//動いた駒が敵駒
-				clone = GameObject.FindGameObjectsWithTag("my");
-				charTag = "ene";
-				bench = stockPlayer2;
-				FieldInfo.instance.cellStatus[movedV,movedH] = CellStatus.PLAYER_2;
-			}else{
-				clone = GameObject.FindGameObjectsWithTag("ene");
-				charTag = "my";
-				bench =stockPlayer1;
-				FieldInfo.instance.cellStatus[movedV,movedH] = CellStatus.PLAYER_1;
+			MoveToBenchProcess(ref targetButton, ref targetStatus);
+			ResultCheckProcess(ref targetStatus);
+
+
+
+			if (targetStatus.isEfect){//取った駒の処理
+									  //TODO:取得した駒が成っている場合、Efectnumberを見に行く→効果を発動した時自身のidをEfectnumberに入れる必要がある
+				targetStatus.Initial(peicemst.getBaseObject(targetStatus.status.EfectNumber));
+				targetButton.GetComponentInChildren<Text>().text = targetStatus.name;
+				targetButton.GetComponentInChildren<Text>().color = Color.black;
 			}
-
-			//移動した場所に駒が存在しているかのチェック
-			if(FieldInfo.instance.cellStatus[movedV,movedH] != 0){
-				//存在している場合サーチ
-				foreach(var clones in clone){
-					if(clones.transform.localPosition == allKomas[bint].transform.localPosition){
-						PeiceStatus br = clones.GetComponent<PeiceStatus>();
-						//Debug.Log("benchin");
-						clones.transform.SetParent(bench);
-						clones.tag = charTag;
-						br.isBench = true;
-						br.v = -1;
-						br.h = -1;
-						clones.transform.Rotate(new Vector3(0,0,180));
-						
-						//王をとった場合の処理
-						if(br.status.Rank == 5){
-#if CPU_CPU_MODE
-							//終了時処理
-
-							allKomas = new Button[40];
-							FieldInfo.instance.cellStatus = new int[9,9];
-							save.KIFU("end","",0,0,0,0);
-							Debug.Log("終了");
-							//次の処理
-							charTagCache = "my";
-							PrefabSet(Player.mydeck);
-							charTagCache = "ene";
-							PrefabSet(enemyTable);
-							startFLG = true;
-
-#else
-							//if(charTag == "ene"){
-							//Result_text.text = "プレイヤー２の勝利";
-							//Result_text.color = Color.blue;
-							//}else{
-							//	Result_text.text = "プレイヤー１の勝利";
-							//	Result_text.color = Color.red;
-							//}
-							//Result_text.gameObject.SetActive(true);
-#endif
-						}
-
-						if(br.isEfect){//取った駒の処理
-							//取得した駒が効果を発動している場合、Efectnumberを見に行くーつまり効果を発動した時自身のidをEfectnumberに入れる必要がある
-							br.Initial(peicemst.getBaseObject(br.status.EfectNumber));
-							//clones.GetComponentInChildren<Text>().text = br.name;
-							clones.GetComponentInChildren<Text>().color = Color.black;
-						}
-						break;
-					}
-							
-				}
-			}
-
-			if(!myKoma.isEfect){
-				//奥３列に入った時の効果
-				if(charTag == "ene"){
-					if(myKoma.v >= 6){　
-						//起動効果か任意か決める
-						//Efect_Selection(bint);
-#if !CPU_CPU_MODE
-						EfectMessage(bint);
-#endif
-					//移動して終わりの時の処理
-					}else　PlayerSwitching();	
-				}else{
-					if(myKoma.v <= 2){
-						//Efect_Selection(bint);
-#if !CPU_CPU_MODE
-						EfectMessage(bint);
-#endif
-					}else PlayerSwitching();
-				}
-			}
-				
 		}
+		myKoma.v = targetV;
+		myKoma.h = targetH;
+
+		if (!myKoma.isEfect){
+			//奥３列に入った時の効果
+			if(turn == "player2" && myKoma.v >= 6)
+			{
+				//起動効果か任意か決める
+				//Efect_Selection(bint);
+				//移動して終わりの時の処理
+			}
+			if(turn == "player1" && myKoma.v <= 2){
+					//Efect_Selection(bint);
+					EfectMessage(runtimeId);
+			}
+		}
+		FieldInfo.DestroyPanels();
+		PlayerSwitching();
 
 	}
 
-	//普通の破壊か,ストックからの移動か
-	public void DestroyKoma(int bint){
-		Destroy(allKomas[bint].gameObject);//普通の破壊
+	void MoveToBenchProcess(ref Button targetButton, ref PeiceStatus targetStatus)
+	{
+		Transform bench = (turn == "player1") ? stockPlayer1 : stockPlayer2;
 		
+		if (targetStatus == null)
+		{
+			return;
+		}
+		targetButton.transform.SetParent(bench);
+		targetButton.tag = turn;
+		targetStatus.isBench = true;
+		targetStatus.v = -1;
+		targetStatus.h = -1;
+		targetButton.transform.Rotate(new Vector3(0, 0, 180));
+	}
+
+	/// <summary>
+	/// 敵のランク５を取った時の処理
+	/// </summary>
+	/// <param name="targetStatus"></param>
+	void ResultCheckProcess(ref PeiceStatus targetStatus)
+	{
+		if (targetStatus.status.Rank == 5)
+		{
+			//TODO：result処理
+		}
 	}
 
 	public void Efect_Selection(int bint){
@@ -530,30 +462,15 @@ public class BattleManager : MonoBehaviour {
 	}
 
 	public void PlayerSwitching(){
-		TurnChange();
-		timebar.ResetTimer();
-		//ターン交代処理
+		//TurnChange();
+		//timebar.ResetTimer();
+		Debug.Log("ターン交代処理");
 	}
 
 	public void KomaPointerDown(int cache){
 		//駒の管理番号と、位置をキャッシュ
 		KomaCache = cache;
 		detailOn = true;
-	}
-
-	public void KomaPointerUp(){
-		detailOn = false;
-		Debug.Log(detailTime);
-		
-		if(detailTime > 1.0f){
-			Debug.Log("detail");
-			PeiceStatus peice = allKomas[KomaCache].GetComponent<PeiceStatus>();
-			//detailView.SwitchStatusView(peice);
-		}else{
-			Debug.Log("move");
-			//createPanel(KomaCache);
-		}
-		detailTime = 0;
 	}
 
 

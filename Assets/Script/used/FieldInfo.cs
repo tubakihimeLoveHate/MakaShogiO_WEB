@@ -4,6 +4,7 @@ using UnityEngine;
 using static common.CommonType;
 using static common.CommonCalcuration;
 using System;
+using UnityEngine.UI;
 
 public class FieldInfo : MonoBehaviour
 {
@@ -16,8 +17,10 @@ public class FieldInfo : MonoBehaviour
     [SerializeField]
     public Transform fieldTransform;
 
-    public Vector3[,] fieldPosition = new Vector3[9, 9];
-    public CellStatus[,] cellStatus { get; set; } = new CellStatus[9, 9];
+    public FieldCell[,] fieldCell { get; set; }
+    
+    [SerializeField]
+    private Button navigationPanel;
 
     public readonly Tuple<int, int>[] player1InitialKomaPosition = new Tuple<int, int>[]{
         Tuple.Create(6,0),
@@ -74,13 +77,15 @@ public class FieldInfo : MonoBehaviour
             instance = this;
             DontDestroyOnLoad(gameObject);
         }
+        
     }
 
     // Start is called before the first frame update
     void Start()
     {
         //ポディション格納
-        CalculateFieldPosition(basePosition, offsetPosition, ref fieldPosition);
+        fieldCell = new FieldCell[9, 9];
+        CalculateFieldPosition();
     }
 
     // Update is called once per frame
@@ -89,7 +94,30 @@ public class FieldInfo : MonoBehaviour
         
     }
 
-    public void DestroyPanels()
+    /// <summary>
+	/// 実際にパネルを描画-駒のPointerUpに設定
+	/// </summary>
+	/// <param name="v"></param>
+	/// <param name="h"></param>
+	/// <param name="bint">全体の駒番号</param>
+	public void CreatePanel(int v, int h, int runtimeId)
+    {
+
+        //移動先の変数
+        int _v = v;
+        int _h = h;
+        int _runtimeId = runtimeId;
+
+        Button navigatePanels;
+        navigatePanels = Instantiate(navigationPanel, fieldTransform);
+        navigatePanels.transform.SetParent(fieldTransform, false);
+        navigatePanels.transform.localScale = Vector3.one;
+        navigatePanels.transform.localPosition = fieldCell[v, h].cellPosition;
+        navigatePanels.onClick.AddListener(() => BattleManager.instance.MoveByField(_v, _h, _runtimeId));
+        navigatePanels.tag = "panels";
+    }
+
+    public static void DestroyPanels()
     {
         var clones = GameObject.FindGameObjectsWithTag("panels");
         foreach (var clone in clones)
@@ -97,5 +125,18 @@ public class FieldInfo : MonoBehaviour
             Destroy(clone);
         }
     }
+
+    public void CalculateFieldPosition()
+    {
+        for (int v = 0; v < 9; v++)
+        {
+            for (int h = 0; h < 9; h++)
+            {
+                fieldCell[v, h] = new FieldCell();
+                fieldCell[v, h].cellPosition = new Vector3(basePosition.x + offsetPosition.x * h, basePosition.y - offsetPosition.y * v, 0);
+            }
+        }
+    }
+
 
 }
