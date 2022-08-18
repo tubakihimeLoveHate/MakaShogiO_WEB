@@ -22,6 +22,8 @@ public class PeiceStatus : MonoBehaviour {
 	public int h;
 	public int v;
 
+	Text text;
+
 	// Use this for initialization
 	void Start () {
 
@@ -36,12 +38,14 @@ public class PeiceStatus : MonoBehaviour {
 	//BaseObjectはバトルマネージャーがPeiceMSTインスタンスからもらう
 	public void Initial (BaseObject baseObj) {
 		status = (BaseObject)GameObject.Instantiate(baseObj);
-		Text text = gameObject.GetComponentInChildren<Text>();
+		text = gameObject.GetComponentInChildren<Text>();
 		text.text = status.PeiceName;
+		ChangeColor();
+	}
 
-		if(isEfect){
-			text.color = Color.red;
-		}
+	public void ChangeColor()
+	{
+		text.color = isEfect ? Color.red : Color.black;
 	}
 
 
@@ -58,6 +62,10 @@ public class PeiceStatus : MonoBehaviour {
 
 	public void CreateNavigation()
 	{
+		if(gameObject.tag != BattleManager.instance.turn)
+		{
+			return;
+		}
 		if (isBench)
 		{
 			CreateNavigationByBench();
@@ -82,6 +90,7 @@ public class PeiceStatus : MonoBehaviour {
 			for (int i = 0; i < 8; i++)
 			{ //方角
 				bool permissionOrverrap = true;
+				int coverCount = 0;
 				if (status.move[i] == 0)
 				{
 					continue;
@@ -97,9 +106,10 @@ public class PeiceStatus : MonoBehaviour {
 					if (i == 5) { _v = v + o * calcNum; _h = h - o * calcNum; }
 					if (i == 6) { _v = v; _h = h - o * calcNum; }
 					if (i == 7) { _v = v - o * calcNum; _h = h - o * calcNum; }
-					permissionOrverrap = VectorCheck(_v, _h);
+					permissionOrverrap = VectorCheck(_v, _h, ref coverCount);
 
-					if (permissionOrverrap == false) break;
+					if (permissionOrverrap == false || permissionOrverrap && coverCount > 1) break;
+					FieldInfo.instance.CreatePanel(_v, _h, runtimeId, "move");
 				}
 			}
 		}
@@ -107,21 +117,53 @@ public class PeiceStatus : MonoBehaviour {
 		{
 			for (int i = 0; i < 8; i++)
 			{//方がく
+				int coverCount = 0;
 
 				if (status.move[i] == 0) continue;//Debug.Log("距離が０のため次の方角へ");
 
-				if (i == 0) VectorCheck(v - status.move[i] * calcNum, h);
-				if (i == 1) VectorCheck(v - status.move[i] * calcNum, h + calcNum);
-				if (i == 2) VectorCheck(v, h + status.move[i] * calcNum);
-				if (i == 3) VectorCheck(v + status.move[i] * calcNum, h + calcNum);
-				if (i == 4) VectorCheck(v + status.move[i] * calcNum, h);
-				if (i == 5) VectorCheck(v + status.move[i] * calcNum, h - calcNum);
-				if (i == 6) VectorCheck(v, h - status.move[i] * calcNum);
-				if (i == 7) VectorCheck(v - status.move[i] * calcNum, h - calcNum);
+				if (i == 0) VectorCheck(v - status.move[i] * calcNum, h, ref coverCount);
+				if (i == 1) VectorCheck(v - status.move[i] * calcNum, h + calcNum, ref coverCount);
+				if (i == 2) VectorCheck(v, h + status.move[i] * calcNum, ref coverCount);
+				if (i == 3) VectorCheck(v + status.move[i] * calcNum, h + calcNum, ref coverCount);
+				if (i == 4) VectorCheck(v + status.move[i] * calcNum, h, ref coverCount);
+				if (i == 5) VectorCheck(v + status.move[i] * calcNum, h - calcNum, ref coverCount);
+				if (i == 6) VectorCheck(v, h - status.move[i] * calcNum, ref coverCount);
+				if (i == 7) VectorCheck(v - status.move[i] * calcNum, h - calcNum, ref coverCount);
 
 			}
 		}
 		
+	}
+
+	/// <summary>
+	/// 範囲チェック＋重複チェック
+	/// </summary>
+	/// <param name="v">moved</param>
+	/// <param name="h">moved</param>
+	/// <returns></returns>
+	public bool VectorCheck(int v, int h, ref int coverCount)
+	{
+
+		bool permisson = true;
+		if (v < 0 || h < 0 || v > 8 || h > 8) return false;
+
+		FieldCell targetcell = FieldInfo.instance.fieldCell[v, h];
+
+		if (targetcell.cellStatus != CellStatus.EMPTY)
+		{
+			if (BattleManager.instance.allKomas[targetcell.komaId].gameObject.tag == gameObject.tag)
+			{
+				return false;   //Debug.Log("自分のコマと被っているためfalse");
+			}
+			else
+			{
+				//Debug.Log("敵と被っているので許容");
+				coverCount++;
+			}
+
+		}
+
+		return permisson;
 	}
 
 	void CreateNavigationByBench()
@@ -133,40 +175,10 @@ public class PeiceStatus : MonoBehaviour {
 			{
 				if (FieldInfo.instance.fieldCell[v, h].cellStatus == CellStatus.EMPTY)
 				{
-					FieldInfo.instance.CreatePanel(v, h, status.Id);
+					FieldInfo.instance.CreatePanel(v, h, status.Id, "entry");
 				}
 			}
 		}
-	}
-
-	/// <summary>
-	/// 範囲チェック＋重複チェック
-	/// </summary>
-	/// <param name="v">moved</param>
-	/// <param name="h">moved</param>
-	/// <returns></returns>
-	public bool VectorCheck(int v, int h)
-	{
-
-		int coverCnt = 0;
-		bool permisson = true;
-		if (v < 0 || h < 0 || v > 8 || h > 8) return false;
-
-		if (FieldInfo.instance.fieldCell[v, h].cellStatus != CellStatus.EMPTY)
-		{
-			if (BattleManager.instance.allKomas[runtimeId].gameObject.tag != gameObject.tag && coverCnt == 0)
-			{
-				coverCnt = 1;
-				permisson = true;   //Debug.Log("敵と被っているが一度めなので許容");
-			}
-			else permisson = false; //Debug.Log("自分のコマと被っているためfalse");
-		}
-
-		if (permisson)
-		{
-			FieldInfo.instance.CreatePanel(v, h, runtimeId);
-		}
-		return permisson;
 	}
 
 }

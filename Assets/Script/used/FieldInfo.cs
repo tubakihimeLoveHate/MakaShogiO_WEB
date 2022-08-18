@@ -100,7 +100,7 @@ public class FieldInfo : MonoBehaviour
 	/// <param name="v"></param>
 	/// <param name="h"></param>
 	/// <param name="bint">‘S‘Ì‚Ì‹î”Ô†</param>
-	public void CreatePanel(int v, int h, int runtimeId)
+	public void CreatePanel(int v, int h, int runtimeId, string mode)
     {
 
         //ˆÚ“®æ‚Ì•Ï”
@@ -108,18 +108,28 @@ public class FieldInfo : MonoBehaviour
         int _h = h;
         int _runtimeId = runtimeId;
 
-        Button navigatePanels;
-        navigatePanels = Instantiate(navigationPanel, fieldTransform);
+        Button navigatePanels = Instantiate(navigationPanel, fieldTransform);
         navigatePanels.transform.SetParent(fieldTransform, false);
         navigatePanels.transform.localScale = Vector3.one;
         navigatePanels.transform.localPosition = fieldCell[v, h].cellPosition;
-        navigatePanels.onClick.AddListener(() => BattleManager.instance.MoveByField(_v, _h, _runtimeId));
+        if (mode == "move")
+        {
+            navigatePanels.onClick.AddListener(() => BattleManager.instance.MoveByField(_v, _h, _runtimeId));
+        }
+        else
+        {
+            navigatePanels.onClick.AddListener(() => BattleManager.instance.ReplaceBenchWithField(_v, _h, _runtimeId));
+        }
         navigatePanels.tag = "panels";
     }
 
     public static void DestroyPanels()
     {
         var clones = GameObject.FindGameObjectsWithTag("panels");
+        if(clones.Length == 0)
+        {
+            return;
+        }
         foreach (var clone in clones)
         {
             Destroy(clone);

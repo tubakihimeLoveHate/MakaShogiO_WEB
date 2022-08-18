@@ -7,6 +7,8 @@ using static common.CommonCalcuration;
 using static common.CommonType;
 using System.Linq;
 using System;
+using UniRx;
+using System.Threading.Tasks;
 
 public class BattleManager : MonoBehaviour {
 
@@ -15,14 +17,6 @@ public class BattleManager : MonoBehaviour {
 	//移動まえのいちを格納
 	int vCache;
 	int hCache;
-
-
-	//<移動先ナビゲートUI関係>
-	//移動可能先を示すボタンPrefab
-	
-	//public Transform PanelsTransform;
-	private RectTransform stockPlayer1;
-	private RectTransform stockPlayer2;
 
 
 	//敵のコマ変更はここから
@@ -59,10 +53,7 @@ public class BattleManager : MonoBehaviour {
 
 	//表示関係
 	//public Text Result_text;
-
-	//効果発動メッセージ
-	//public Image selectEfectForm;
-	bool selectedEfect = false;
+	
 	bool selected = true;
 	public Button Yes_Button;
 	//public Button No_Button;
@@ -86,6 +77,15 @@ public class BattleManager : MonoBehaviour {
 	public string turn = "player1";
 
 	public static BattleManager instance;
+	[SerializeField]
+	private RectTransform stockPlayer1;
+	[SerializeField]
+	private RectTransform stockPlayer2;
+
+	private string selectedEffect = "";
+	[SerializeField]
+	private Image confirmEffectDialog;
+	private bool isLock;
 
 	private void Awake()
 	{
@@ -217,13 +217,14 @@ public class BattleManager : MonoBehaviour {
 		
 	}
 
-	public void MoveByBench(int movedV, int movedH, int runtimeId)
+	public void ReplaceBenchWithField(int targetV, int targetH, int runtimeId)
 	{
 		PeiceStatus myKoma = allKomas[runtimeId].GetComponent<PeiceStatus>();
-		int Filedinchash = myKoma.status.Id;
+		int komaId = myKoma.status.Id;
+		globalKomaIndex = runtimeId;
 
 		DestroyKoma(runtimeId);
-		createPiece(movedV, movedH, Filedinchash, turn);
+		createPiece(targetV, targetH, komaId, turn);
 		instance.PlayerSwitching();
 	}
 
@@ -236,9 +237,9 @@ public class BattleManager : MonoBehaviour {
 	/// <summary>
 	/// パネル押下時の駒を動かした時の処理
 	/// </summary>
-	/// <param name="v,h">移動先の位置</param>
-	/// <param name="bint">駒の添字</param>
-	public void MoveByField(int targetV,int targetH,int runtimeId){		
+	/// <param name="targetV,targetH">移動先の座標</param>
+	/// <param name="runtimeId">駒の添字</param>
+	public async Task MoveByField(int targetV,int targetH,int runtimeId){		
 
 		
 		PeiceStatus myKoma = allKomas[runtimeId].GetComponent<PeiceStatus>();
@@ -258,8 +259,6 @@ public class BattleManager : MonoBehaviour {
 			MoveToBenchProcess(ref targetButton, ref targetStatus);
 			ResultCheckProcess(ref targetStatus);
 
-
-
 			if (targetStatus.isEfect){//取った駒の処理
 									  //TODO:取得した駒が成っている場合、Efectnumberを見に行く→効果を発動した時自身のidをEfectnumberに入れる必要がある
 				targetStatus.Initial(peicemst.getBaseObject(targetStatus.status.EfectNumber));
@@ -269,39 +268,46 @@ public class BattleManager : MonoBehaviour {
 		}
 		myKoma.v = targetV;
 		myKoma.h = targetH;
+		nowCell.cellStatus = CellStatus.EMPTY;
+		targetCell.cellStatus = (turn == "player1") ? CellStatus.PLAYER_1 : CellStatus.PLAYER_2;
+		nowCell.komaId = -1;
+		targetCell.komaId = runtimeId;
+		FieldInfo.DestroyPanels();
 
 		if (!myKoma.isEfect){
 			//奥３列に入った時の効果
 			if(turn == "player2" && myKoma.v >= 6)
 			{
-				//起動効果か任意か決める
 				//Efect_Selection(bint);
-				//移動して終わりの時の処理
+				await StartCoroutine(EffectWait(runtimeId));
 			}
 			if(turn == "player1" && myKoma.v <= 2){
 					//Efect_Selection(bint);
-					EfectMessage(runtimeId);
+				//EfectMessage(runtimeId);
+				await StartCoroutine(EffectWait(runtimeId));
 			}
 		}
-		FieldInfo.DestroyPanels();
 		PlayerSwitching();
-
 	}
 
 	void MoveToBenchProcess(ref Button targetButton, ref PeiceStatus targetStatus)
 	{
-		Transform bench = (turn == "player1") ? stockPlayer1 : stockPlayer2;
+		RectTransform stockPosition = (turn == "player1") ? stockPlayer1 : stockPlayer2;
 		
 		if (targetStatus == null)
 		{
 			return;
 		}
-		targetButton.transform.SetParent(bench);
+		if (targetStatus.isEfect)
+		{
+			SkillChange(targetStatus.runtimeId);
+		}
+		targetButton.transform.SetParent(stockPosition);
+		targetButton.transform.Rotate(new Vector3(0, 0, 180));
 		targetButton.tag = turn;
 		targetStatus.isBench = true;
 		targetStatus.v = -1;
 		targetStatus.h = -1;
-		targetButton.transform.Rotate(new Vector3(0, 0, 180));
 	}
 
 	/// <summary>
@@ -323,7 +329,7 @@ public class BattleManager : MonoBehaviour {
 			case BaseObject.ET.Atack:
 			break;
 			case BaseObject.ET.Change:
-				Skill_Change(bint);
+				SkillChange(bint);
 				//Invoke("() => Skill_Change(bint))",5);
 				//selectEfectForm.gameObject.SetActive(true);
 				break;
@@ -344,82 +350,57 @@ public class BattleManager : MonoBehaviour {
 		
 	}
 
+	/// <summary>
+	/// 成りと取られた時に元に戻る関数を一緒にしている
+	/// </summary>
+	/// <param name="runtimeId"></param>
+	public void SkillChange(int runtimeId)
+	{
+		PeiceStatus peiceStatus = allKomas[runtimeId].GetComponent<PeiceStatus>();
+		int orizinalId = peiceStatus.status.Id;
 
-	
-	public void Skill_Change(int bint){
-		//Debug.Log("効果発動");
-		//float waitSecond = 0;
-		//selected = true;
+		peiceStatus.isEfect = !peiceStatus.isEfect;
+		peiceStatus.Initial(peicemst.getBaseObject(peiceStatus.status.EfectNumber));
+		//TODO:スキルがなくなるとは限らない
+		peiceStatus.status.EfectType = BaseObject.ET.None;
+		//取られた時に元の駒に戻るための前のid
+		peiceStatus.status.EfectNumber = orizinalId;
 
-		//StartCoroutine(EfectMessage());
-		//if(selectedEfect){
-			PeiceStatus br = allKomas[bint].GetComponent<PeiceStatus>();
-			int orizinalNum = br.status.Id;
-			//int v = br.v;
-			//int h = br.h;
-
-			br.isEfect = true;
-			//ステータスのみ変更している
-			br.Initial(peicemst.getBaseObject(br.status.EfectNumber));
-			//allKomas[bint].GetComponentInChildren<Text>().text = br.name;
-			
-			br.status.EfectType = BaseObject.ET.None;
-			//取られた時に元の駒に戻るための前のid
-			br.status.EfectNumber = orizinalNum;
-			
-			//br.v = v;
-			//br.h = h;
-			//selectEfectForm.gameObject.SetActive(false);
-		//}
-		
 	}
 
-	//IEnumerator EfectWait(){
-		//yield return new WaitUntil(() => (Efect_Yes() || Efect_No()));
-	//	yield return new WaitUntil(selected == true);
-		
-	//	Selected = false;
-	//}
+	IEnumerator EffectWait(int runtimeId){
+		confirmEffectDialog.gameObject.SetActive(true);
+		yield return new WaitUntil(() => { return selectedEffect != ""; });
+		if(selectedEffect == "yes")
+		{
+			//効果内容
+			Debug.Log("yesボタンが選択されました。");
+		}
+		selectedEffect = "";
+		confirmEffectDialog.gameObject.SetActive(false);
+		SkillChange(runtimeId);
+	}
 
 	/// <summary>
 	/// 効果発動確認画面
 	/// </summary>
 	/// <param name="bint"></param>
 	public void EfectMessage(int bint){
-		///範囲かつ効果が発動してなければこの関数に遷移
-		
-		
 		//selectedEfect = true;
 		
-		//selectEfectForm.gameObject.SetActive(true);
+		
 		//この効果発動選択中は他の操作はできないようにboolを設ける
-		Yes_Button.onClick.AddListener(()=>Efect_Yes(bint));
+		//Yes_Button.onClick.AddListener(()=>Efect_Yes(bint));
 		//No_Button.onClick.AddListener(Efect_No);
 		//bratsh[brnt] = bint;//効果を発動するコマのキャッシュ
 		//brnt++;
 	}
 
-	public void Efect_Yes(int bint){
-		//今は効果一度だけ発動すればターン交代でいいが、これからは効果が連鎖する可能性あり
-		//selectEfectForm.gameObject.SetActive(false);
-		Efect_Selection(bint);
-		PlayerSwitching();
-		//Yes_Button.onClick.RemoveAllListeners();
-		//selected = false;
-		//Debug.Log("Yes"+selected);
-		selectedEfect = true;
-		
+	public void OnYesButton(){
+		selectedEffect = "yes";
 	}
-	public void Efect_No(){
-		//selectEfectForm.gameObject.SetActive(false);
-		//bratsh[brnt] = null;
-		//Yes_Button.onClick.RemoveAllListeners();
-		//Efect_Selection(bint);
-		PlayerSwitching();
-		//selected = false;
-		//Debug.Log("No"+selected);
-		selectedEfect = false;
-		
+	public void OnNoButton(){
+		selectedEffect = "no";
 	}
 
 
@@ -458,13 +439,21 @@ public class BattleManager : MonoBehaviour {
 
 	public void TurnChange(){
 		turnNumber += 1;
-		textIn = true;
+		//textIn = true;
+		if(turn == "player1")
+		{
+			turn = "player2";
+		}
+		else
+		{
+			turn = "player1";
+		}
 	}
 
 	public void PlayerSwitching(){
-		//TurnChange();
+		TurnChange();
 		//timebar.ResetTimer();
-		Debug.Log("ターン交代処理");
+		Debug.Log($"ターン交代処理:{turn}");
 	}
 
 	public void KomaPointerDown(int cache){

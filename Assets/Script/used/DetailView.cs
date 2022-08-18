@@ -75,7 +75,6 @@ public class DetailView :MonoBehaviour{
 		//押されたままなら長押しの挙動
 		if (isPressDown)
 		{
-			Debug.Log("Long Press Done");
 			DisplayDetailView();
 			ChangeText();
 		}
@@ -87,13 +86,11 @@ public class DetailView :MonoBehaviour{
 	{
 		if (isPressDown)
 		{
-			Debug.Log("Short Press Done");
 			isPressDown = false;
 
 			//お好みの短押し時の挙動をここに書く(無い場合は書かなくても良い)
 
 		}
-		Debug.Log("Press End");
 	}
 
 
